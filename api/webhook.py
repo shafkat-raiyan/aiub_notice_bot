@@ -1,3 +1,4 @@
+from http.server import BaseHTTPRequestHandler
 import os
 import json
 import requests
@@ -100,25 +101,17 @@ def handle_start_command(chat_id):
     send_message(chat_id, msg)
 
 
-def handler(request):
-    """Vercel serverless function handler."""
-    if request.method != "POST":
-        return {"statusCode": 200, "body": "OK"}
-
-    try:
-        body = request.get_json()
-    except:
-        return {"statusCode": 200, "body": "OK"}
-
+def process_update(body):
+    """Process a Telegram update."""
     if not body or "message" not in body:
-        return {"statusCode": 200, "body": "OK"}
+        return
 
     message = body["message"]
     chat_id = message.get("chat", {}).get("id")
     text = message.get("text", "").strip()
 
     if not chat_id or not text:
-        return {"statusCode": 200, "body": "OK"}
+        return
 
     # Route commands
     if text == "/notice" or text.startswith("/notice@"):
@@ -128,4 +121,25 @@ def handler(request):
     elif text in ("/start", "/help") or text.startswith(("/start@", "/help@")):
         handle_start_command(chat_id)
 
-    return {"statusCode": 200, "body": "OK"}
+
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length)
+        
+        try:
+            data = json.loads(body)
+            process_update(data)
+        except:
+            pass
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"AIUB Notice Bot Webhook is running")
