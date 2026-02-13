@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import os
 from urllib.parse import urljoin
 
-# --- CONFIGURATION (Load from GitHub Secrets) ---
+# CONFIGURATION
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 URL = "https://www.aiub.edu/category/notices"
