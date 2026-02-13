@@ -3,10 +3,24 @@ import os
 import json
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from urllib.parse import urljoin, parse_qs, urlparse
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 AIUB_URL = "https://www.aiub.edu/category/notices"
+
+
+def set_bot_commands():
+    """Register bot commands with Telegram so they appear in the menu."""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/setMyCommands"
+    commands = [
+        {"command": "notice", "description": "Show latest 5 notices"},
+        {"command": "latest", "description": "Show most recent notice with preview"},
+        {"command": "search", "description": "Search notices by keyword"},
+        {"command": "devinfo", "description": "Information of the developer"},
+        {"command": "help", "description": "Show available commands"},
+    ]
+    resp = requests.post(url, json={"commands": commands}, timeout=10)
+    return resp.ok
 
 
 def escape_markdown_v2(text):
@@ -180,7 +194,7 @@ def process_update(body):
         handle_latest_command(chat_id)
     elif text in ("/start", "/help") or text.startswith(("/start@", "/help@")):
         handle_start_command(chat_id)
-    elif text == "/devInfo" or text.startswith("/devInfo@"):
+    elif text.lower() == "/devinfo" or text.lower().startswith("/devinfo@"):
         handle_dev_info_command(chat_id)
     elif text.startswith("/search"):
         query = text.split(maxsplit=1)[1] if " " in text else ""
@@ -204,6 +218,22 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(b"OK")
 
     def do_GET(self):
+        # Parse query parameters
+        parsed = urlparse(self.path)
+        params = parse_qs(parsed.query)
+        
+        # Check if setup action is requested
+        if params.get("action") == ["setup"]:
+            success = set_bot_commands()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            if success:
+                self.wfile.write(b"Bot commands registered successfully!")
+            else:
+                self.wfile.write(b"Failed to register bot commands.")
+            return
+        
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
         self.end_headers()
