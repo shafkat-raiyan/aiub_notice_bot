@@ -164,7 +164,7 @@ def main():
 
     # ---- send notifications (oldest first) --------------------------------
     all_sent = True
-    for title, link in reversed(new_notices):
+    for i, (title, link) in enumerate(reversed(new_notices)):
         log.info("New notice: %s", title)
         safe_title = escape_markdown_v2(title)
         safe_link = escape_markdown_v2(link)
@@ -176,6 +176,8 @@ def main():
         if not send_telegram_msg(msg):
             log.error("Failed to send notification for: %s", title)
             all_sent = False
+        elif i < len(new_notices) - 1:
+            time.sleep(0.5)  # Brief delay to avoid Telegram rate limits
 
     # ---- persist state only when every message was delivered ---------------
     if all_sent:
