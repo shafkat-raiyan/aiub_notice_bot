@@ -113,7 +113,20 @@ def handle_start_command(chat_id):
         "/notice \\- Show latest 5 notices\n"
         "/latest \\- Show the most recent notice\n"
         "/search \\<keyword\\> \\- Search notices\n"
+        "/devInfo \\- Show developer info\n"
         "/help \\- Show this message"
+    )
+    send_message(chat_id, msg)
+
+
+def handle_dev_info_command(chat_id):
+    """Handle /devInfo command - show developer information."""
+    msg = (
+        "👨‍💻 *Developer Information*\n\n"
+        "*Name:* Syed Shafkat Raiyan\n\n"
+        "🔗 *Connect with me:*\n"
+        "[GitHub](https://github.com/shafkat\-raiyan)\n"
+        "[LinkedIn](https://www.linkedin.com/in/shafkat\-raiyan)"
     )
     send_message(chat_id, msg)
 
@@ -167,6 +180,8 @@ def process_update(body):
         handle_latest_command(chat_id)
     elif text in ("/start", "/help") or text.startswith(("/start@", "/help@")):
         handle_start_command(chat_id)
+    elif text == "/devInfo" or text.startswith("/devInfo@"):
+        handle_dev_info_command(chat_id)
     elif text.startswith("/search"):
         query = text.split(maxsplit=1)[1] if " " in text else ""
         handle_search_command(chat_id, query)
