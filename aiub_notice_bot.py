@@ -80,7 +80,7 @@ def send_telegram_msg(message):
 def get_all_notices():
     """Scrape ALL notices from the AIUB notices page.
 
-    Returns a list of (title, link) tuples.  Raises on network errors so the
+    Returns a list of (title, link, date) tuples. Raises on network errors so the
     caller can decide how to handle them.
     """
     headers = {
@@ -93,16 +93,28 @@ def get_all_notices():
     soup = BeautifulSoup(resp.content, "html.parser")
 
     notices = []
-    for title_element in soup.select("h2.title"):
-        title = title_element.get_text().strip()
+    for item in soup.select(".event-item, .notice-item, article"):
+        title_el = item.select_one("h2.title")
+        if not title_el:
+            continue
+        title = title_el.get_text().strip()
         if not title:
             continue
-        link_tag = title_element.find_parent("a")
-        if link_tag and link_tag.get("href"):
-            link = urljoin("https://www.aiub.edu", link_tag["href"])
-        else:
-            link = URL
-        notices.append((title, link))
+        link_tag = title_el.find_parent("a") or item.select_one("a[href]")
+        link = urljoin("https://www.aiub.edu", link_tag["href"]) if link_tag else URL
+        date_el = item.select_one(".date, time, .event-date")
+        date = date_el.get_text().strip() if date_el else ""
+        notices.append((title, link, date))
+
+    # Fallback to old method if new selectors don't work
+    if not notices:
+        for title_element in soup.select("h2.title"):
+            title = title_element.get_text().strip()
+            if not title:
+                continue
+            link_tag = title_element.find_parent("a")
+            link = urljoin("https://www.aiub.edu", link_tag["href"]) if link_tag else URL
+            notices.append((title, link, ""))
 
     return notices
 
@@ -155,8 +167,8 @@ def main():
         log.info("No notices found on page – the page structure may have changed.")
         return
 
-    current_titles = [title for title, _ in notices]
-    new_notices = [(t, l) for t, l in notices if t not in saved_titles]
+    current_titles = [title for title, _, _ in notices]
+    new_notices = [(t, l, d) for t, l, d in notices if t not in saved_titles]
 
     if not new_notices:
         log.info("No new notices.")
@@ -164,12 +176,14 @@ def main():
 
     # ---- send notifications (oldest first) --------------------------------
     all_sent = True
-    for i, (title, link) in enumerate(reversed(new_notices)):
+    for i, (title, link, date) in enumerate(reversed(new_notices)):
         log.info("New notice: %s", title)
         safe_title = escape_markdown_v2(title)
         safe_link = escape_markdown_v2(link)
+        date_str = f"\U0001f4c5 {escape_markdown_v2(date)}\n\n" if date else ""
         msg = (
             "\U0001f6a8 *New AIUB Notice\\!*\n\n"
+            f"{date_str}"
             f"_{safe_title}_\n\n"
             f"[Click to Read]({safe_link})"
         )

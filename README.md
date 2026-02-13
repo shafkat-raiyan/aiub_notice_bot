@@ -10,8 +10,9 @@ A serverless Python bot that monitors the [AIUB Noticeboard](https://www.aiub.ed
 
 ## Bot Commands
 - `/start` - Welcome message
-- `/notice` - Show latest 5 notices
-- `/latest` - Show the most recent notice
+- `/notice` - Show latest 5 notices with dates
+- `/latest` - Show the most recent notice with link preview
+- `/search <keyword>` - Search notices (e.g., `/search exam`)
 - `/help` - Show available commands
 
 ## How It Works
