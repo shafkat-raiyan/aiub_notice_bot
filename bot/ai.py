@@ -4,8 +4,8 @@ How it works:
   1. Receive a question from the user
   2. Check in-memory answer deduplication cache (shields free tier from simultaneous traffic bursts)
   3. Pre-filter 200-item historical database down to ~35 high-signal notices (~85% token reduction)
-  4. Try free models in order — if one fails or throttles, fall back to the next
-  5. Cache and return the answer as a plain string
+  4. Try high-speed free flash models in order with 10s timeouts for ultra-fast failover
+  5. Sanitize and cache the answer as clean conversational prose for Telegram rendering
 """
 
 import time
@@ -22,14 +22,14 @@ _API_URL = "https://openrouter.ai/api/v1/chat/completions"
 _ANSWER_CACHE = {}  # format: {normalized_question: (timestamp, answer)}
 _CACHE_TTL_SECONDS = 600  # 10 minutes time-to-live
 
-# Free models ranked by quality — tries best first, falls back on failure
+# Free models ranked by responsiveness and instruction quality — fast flash/instruction models first!
 _FREE_MODELS = [
-    "google/gemma-4-31b:free",
+    "google/gemini-2.5-flash:free",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "qwen/qwen-2.5-7b-instruct:free",
+    "meta-llama/llama-3.2-3b-instruct:free",
     "google/gemma-4-26b-a4b:free",
     "nvidia/nemotron-3-super:free",
-    "nvidia/nemotron-3-ultra:free",
-    "nvidia/nemotron-3-nano-30b-a3b:free",
-    "poolside/laguna-m.1:free",
     "openai/gpt-oss-20b:free",
 ]
 
@@ -48,7 +48,7 @@ _SYSTEM_PROMPT = (
     "1. ZERO HALLUCINATIONS: You only hold catalog headlines, publication dates, summary previews, and URLs—not internal PDF body text. If a student asks for deep internal details (e.g., specific room numbers, tuition fee amounts, or individual seat plans), pinpoint the best matching notice and instruct them to click the link to view exact PDF documents.\n"
     "2. TEMPORAL & SCOPE AWARENESS: Your active memory pool spans our newest ~200 notices (the current academic term, ~last 4 to 6 months). If a student inquires about historical events or rules from previous academic years (e.g., 1 or 2 years ago) or events outside this list, explain: 'My live memory covers our latest ~200 semester announcements (~4 to 6 months). For archival policies from previous academic years, please search the official university catalog at https://www.aiub.edu/category/notices!'\n"
     "3. NO SILENT REFUSALS: If a user inquires about upcoming midterms, routines, or holidays that aren't in your current list, NEVER simply reply 'No' or 'I don't know'. Offer helpful guidance: 'I couldn't find a headline matching that topic in our active semester records. Because exam dates and academic deadlines are mission-critical, please verify directly at https://www.aiub.edu/category/notices or try using `/search <keyword>`!'\n"
-    "4. Keep your replies concise, friendly, professional, and directly actionable."
+    "4. STRICT CHAT FORMATTING: Do NOT generate Markdown tables, ASCII grids, horizontal dividers, or double asterisks (`**bold**`). Write your response in warm, natural conversational paragraphs or simple bullet points so it renders cleanly on mobile chat screens. Keep your replies clear, helpful, and concise."
 )
 
 
@@ -103,7 +103,7 @@ def _call_openrouter(model, messages):
             "Content-Type": "application/json",
         },
         json={"model": model, "messages": messages},
-        timeout=30,
+        timeout=10,  # Strict 10s timeout ensures rapid failover to fast alternative models during queue delays
     )
     resp.raise_for_status()
     return resp.json()["choices"][0]["message"]["content"].strip()
@@ -112,7 +112,7 @@ def _call_openrouter(model, messages):
 def ask_about_notices(question, notices):
     """Ask the LLM a question grounded in the provided notices with defensive caching and RAG filtering.
 
-    Tries each free model in order. If one is rate-limited or down, falls back to the next automatically.
+    Tries high-speed free models in order. If one is queued, rate-limited, or down, falls back to the next automatically.
     """
     if not OPENROUTER_API_KEY:
         return "AI feature is not configured. The developer needs to set OPENROUTER_API_KEY."
@@ -144,13 +144,17 @@ def ask_about_notices(question, notices):
 
     for model in _FREE_MODELS:
         try:
-            answer = _call_openrouter(model, messages)
+            raw_answer = _call_openrouter(model, messages)
             log.info("Got answer from %s", model)
-            # 3. Store verified answer in TTL cache before returning
-            _ANSWER_CACHE[norm_q] = (now, answer)
-            return answer
+            
+            # Sanitize response text so Telegram's escape_markdown_v2 renders clean prose without raw asterisks
+            clean_answer = raw_answer.replace("**", "").replace("### ", "").strip()
+            
+            # 3. Store verified clean answer in TTL cache before returning
+            _ANSWER_CACHE[norm_q] = (now, clean_answer)
+            return clean_answer
         except Exception as exc:
-            log.warning("Model %s failed: %s — trying next", model, exc)
+            log.warning("Model %s failed or timed out (%s) — switching to next fast model", model, exc)
             continue
 
     return "All AI models are currently busy due to high campus traffic. Please try again in a couple of minutes."
