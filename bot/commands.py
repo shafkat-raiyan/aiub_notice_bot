@@ -21,9 +21,7 @@ log = logging.getLogger(__name__)
 _USER_STATES = {}
 
 
-# ---------------------------------------------------------------------------
 # Helpers & Zero-Cost Cache Reader
-# ---------------------------------------------------------------------------
 
 def get_cached_or_live_notices(limit=30, force_live=False):
     """Read historical notices straight from local git-backed JSON disk storage.
@@ -42,9 +40,7 @@ def _send_error(chat_id, command):
     send_message(chat_id, f"Something went wrong with {escape_markdown_v2(command)}\\. Please try again later\\.")
 
 
-# ---------------------------------------------------------------------------
 # Command handlers
-# ---------------------------------------------------------------------------
 
 def handle_start(chat_id):
     msg = (
@@ -147,9 +143,7 @@ def handle_devinfo(chat_id):
     send_message(chat_id, msg)
 
 
-# ---------------------------------------------------------------------------
 # Router & Two-Step State Machine
-# ---------------------------------------------------------------------------
 
 def process_update(body):
     """Parse a Telegram update, manage interactive prompt states, and route to command handlers."""

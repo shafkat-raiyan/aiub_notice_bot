@@ -33,6 +33,14 @@ _FREE_MODELS = [
     "openai/gpt-oss-20b:free",
 ]
 
+# Static module-level set of common stop words to optimize keyword matching runtime
+_STOP_WORDS = {
+    "is", "the", "when", "what", "where", "how", "who", "why", "can", "will", "would", "should",
+    "could", "do", "does", "did", "are", "was", "were", "of", "in", "and", "on", "to", "by",
+    "with", "from", "at", "as", "for", "about", "any", "all", "some", "my", "our", "your",
+    "notice", "notices", "aiub", "university", "please", "tell", "me", "know", "out", "published"
+}
+
 _SYSTEM_PROMPT = (
     "You are an expert academic assistant for AIUB (American International University-Bangladesh) students. "
     "Answer the student's question using ONLY the active campus catalog provided below (~200 historical announcements covering the full current academic semester, ~last 4 to 6 months).\n\n"
@@ -53,13 +61,7 @@ def _filter_relevant_notices(question, notices, max_items=35):
     if len(notices) <= max_items:
         return notices
 
-    stop_words = {
-        "is", "the", "when", "what", "where", "how", "who", "why", "can", "will", "would", "should",
-        "could", "do", "does", "did", "are", "was", "were", "of", "in", "and", "on", "to", "by",
-        "with", "from", "at", "as", "for", "about", "any", "all", "some", "my", "our", "your",
-        "notice", "notices", "aiub", "university", "please", "tell", "me", "know", "out", "published"
-    }
-    query_words = set(re.findall(r"\w+", question.lower())) - stop_words
+    query_words = set(re.findall(r"\w+", question.lower())) - _STOP_WORDS
 
     # If no significant domain keywords remain (e.g., general "what is new?"), serve newest 35 items
     if not query_words:

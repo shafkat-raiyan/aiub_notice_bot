@@ -2,22 +2,22 @@
 
 import os
 
-# --- Telegram ---
+# Telegram
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
-# --- OpenRouter AI ---
+# OpenRouter AI
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
-# --- Scraper ---
+# Scraper
 AIUB_URL = "https://www.aiub.edu/category/notices"
 TIMEOUT = 30  # seconds
 
-# --- Retry logic (for sending alerts) ---
+# Retry logic (for sending alerts)
 MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds between retries
 
-# --- State & Database file ---
+# State & Database file
 MAX_SAVED_NOTICES = 200  # cap to prevent unbounded growth
 # Resolve to repo root (one level above this bot/ package)
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
