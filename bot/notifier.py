@@ -46,7 +46,7 @@ def get_bot_username():
     return _bot_username or "r_aiub_notice_bot"
 
 
-def send_alert(title, link, date):
+def send_alert(title, link, date, summary=""):
     """Send a new-notice alert to the configured CHAT_ID (used by the cron job).
 
     Retries up to MAX_RETRIES times on failure.
@@ -54,10 +54,12 @@ def send_alert(title, link, date):
     """
     safe_title = escape_markdown_v2(title)
     date_str = f"\U0001f4c5 {escape_markdown_v2(date)}\n\n" if date else ""
+    summary_str = f"\n\n💬 _{escape_markdown_v2(summary)}_" if summary else ""
     msg = (
         "\U0001f6a8 *New AIUB Notice\\!*\n\n"
         f"{date_str}"
-        f"_{safe_title}_"
+        f"*{safe_title}*"
+        f"{summary_str}"
     )
 
     bot_url = f"https://t.me/{get_bot_username()}"

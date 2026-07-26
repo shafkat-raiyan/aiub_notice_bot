@@ -2,7 +2,7 @@
 
 Each handle_* function:
   - Receives a chat_id
-  - Does its work (read JSON DB / query AI / etc.)
+  - Does its work (read 4-field JSON DB / query AI / etc.)
   - Sends a response via notifier.send_message()
 
 process_update() is the router — it reads the incoming Telegram message
@@ -63,7 +63,8 @@ def handle_notice(chat_id):
             send_message(chat_id, "No notices found\\.")
             return
         lines = ["📋 *Latest AIUB Notices*\n"]
-        for i, (title, link, date) in enumerate(notices, 1):
+        for i, item in enumerate(notices, 1):
+            title, link, date = item[:3]
             date_str = f" \\({escape_markdown_v2(date)}\\)" if date else ""
             lines.append(f"{i}\\. [{escape_markdown_v2(title)}]({escape_markdown_v2(link)}){date_str}\n")
         send_message(chat_id, "\n".join(lines))
@@ -78,9 +79,13 @@ def handle_latest(chat_id):
         if not notices:
             send_message(chat_id, "No notices found\\.")
             return
-        title, link, date = notices[0]
+        item = notices[0]
+        title, link, date = item[:3]
+        summary = item[3] if len(item) > 3 else ""
+        
         date_str = f"📅 {escape_markdown_v2(date)}\n\n" if date else ""
-        msg = f"🔔 *Latest Notice*\n\n{date_str}_{escape_markdown_v2(title)}_\n\n[Click to Read]({escape_markdown_v2(link)})"
+        summary_str = f"\n\n💬 _{escape_markdown_v2(summary)}_" if summary else ""
+        msg = f"🔔 *Latest Notice*\n\n{date_str}*{escape_markdown_v2(title)}*{summary_str}\n\n[Click to Read]({escape_markdown_v2(link)})"
         send_message(chat_id, msg, preview=True)
     except Exception:
         log.exception("Error in /latest")
@@ -94,12 +99,13 @@ def handle_search(chat_id, query):
     try:
         # Search across ALL historical records in notices_db.json!
         notices = get_cached_or_live_notices(limit=None)
-        matches = [(t, l, d) for t, l, d in notices if query.lower() in t.lower()]
+        matches = [item for item in notices if query.lower() in item[0].lower() or (len(item) > 3 and query.lower() in item[3].lower())]
         if not matches:
             send_message(chat_id, f"No notices found for *{escape_markdown_v2(query)}* in our historical database\\.")
             return
         lines = [f"🔍 *Results for \"{escape_markdown_v2(query)}\"*\n"]
-        for i, (title, link, date) in enumerate(matches[:5], 1):
+        for i, item in enumerate(matches[:5], 1):
+            title, link, date = item[:3]
             date_str = f" \\({escape_markdown_v2(date)}\\)" if date else ""
             lines.append(f"{i}\\. [{escape_markdown_v2(title)}]({escape_markdown_v2(link)}){date_str}\n")
         if len(matches) > 5:

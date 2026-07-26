@@ -2,10 +2,10 @@
 
 Flow:
   1. Load previously seen notice titles from persistent JSON database
-  2. Scrape the AIUB notice page
+  2. Scrape the AIUB notice page (captures title, link, date, summary)
   3. Find notices we haven't sent yet
   4. Send Telegram alerts for each new notice (oldest first)
-  5. Save structured records (title, link, date) to JSON DB only if all alerts delivered
+  5. Save structured records to JSON DB only if all alerts delivered
 """
 
 import sys
@@ -38,7 +38,7 @@ def main():
         log.info("No notices found – the page structure may have changed.")
         return
 
-    new_notices = [(t, l, d) for t, l, d in notices if t not in saved]
+    new_notices = [item for item in notices if item[0] not in saved]
 
     if not new_notices:
         log.info("No new notices.")
@@ -46,9 +46,12 @@ def main():
 
     # Send oldest first (reversed), with a small delay to respect Telegram rate limits
     all_sent = True
-    for i, (title, link, date) in enumerate(reversed(new_notices)):
+    for i, item in enumerate(reversed(new_notices)):
+        title, link, date = item[:3]
+        summary = item[3] if len(item) > 3 else ""
+        
         log.info("Sending alert: %s", title)
-        if not send_alert(title, link, date):
+        if not send_alert(title, link, date, summary):
             log.error("Failed to send alert for: %s", title)
             all_sent = False
         elif i < len(new_notices) - 1:

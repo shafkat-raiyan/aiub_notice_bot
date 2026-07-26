@@ -1,21 +1,21 @@
-"""Scrapes AIUB notice board and returns structured notice data."""
+"""Scrapes AIUB notice board and returns structured 4-field metadata records."""
 
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from bot.config import AIUB_URL, TIMEOUT
 
-_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; AIUBNoticeBot/1.0; +https://github.com)"}
+_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; AIUBNoticeBot/2.0; +https://github.com)"}
 
 
 def get_notices(limit=None):
-    """Fetch notices from the AIUB website.
+    """Fetch structured notices from the AIUB website.
 
     Args:
-        limit: Max notices to return. None means return all.
+        limit: Max notices to return. None means return all available on the page.
 
     Returns:
-        List of (title, link, date) tuples, newest first.
+        List of (title, link, date, summary) tuples, newest first.
 
     Raises:
         requests.RequestException: On network or HTTP errors.
@@ -25,30 +25,43 @@ def get_notices(limit=None):
     soup = BeautifulSoup(resp.content, "html.parser")
 
     notices = []
-    for item in soup.select(".event-item, .notice-item, article"):
+    
+    # AIUB stores notice items inside <div class="notification"> blocks
+    for item in soup.select("div.notification, .notice-item, article"):
         title_el = item.select_one("h2.title")
         if not title_el:
             continue
-        title = title_el.get_text().strip()
+        title = " ".join(title_el.get_text().split())
         if not title:
             continue
-        link_tag = title_el.find_parent("a") or item.select_one("a[href]")
-        link = urljoin(AIUB_URL, link_tag["href"]) if link_tag else AIUB_URL
-        date_el = item.select_one(".date, time, .event-date")
-        date = date_el.get_text().strip() if date_el else ""
-        notices.append((title, link, date))
+            
+        link_tag = item.select_one("a.info-link, a[href]") or title_el.find_parent("a")
+        link = urljoin(AIUB_URL, link_tag["href"]) if link_tag and "href" in link_tag.attrs else AIUB_URL
+
+        # AIUB timestamp selector (.date-custom)
+        date_el = item.select_one(".date-custom, .date, time")
+        date = " ".join(date_el.get_text().split()) if date_el else ""
+
+        # AIUB description snippet selector (p.desc)
+        desc_el = item.select_one("p.desc, .description")
+        summary = " ".join(desc_el.get_text().split()) if desc_el else ""
+        # Ignore boilerplate placeholder text
+        if summary.lower() in ("please click here for more details", "click here for more details", ""):
+            summary = ""
+
+        notices.append((title, link, date, summary))
         if limit and len(notices) >= limit:
             return notices
 
-    # Fallback: simpler selector if the structured approach yields nothing
+    # Fallback: simpler title selector if structure changes in the future
     if not notices:
         for title_el in soup.select("h2.title"):
-            title = title_el.get_text().strip()
+            title = " ".join(title_el.get_text().split())
             if not title:
                 continue
             link_tag = title_el.find_parent("a")
             link = urljoin(AIUB_URL, link_tag["href"]) if link_tag else AIUB_URL
-            notices.append((title, link, ""))
+            notices.append((title, link, "", ""))
             if limit and len(notices) >= limit:
                 return notices
 

@@ -1,7 +1,5 @@
 """Vercel serverless entry point — handles incoming Telegram webhook requests.
 
-This file is intentionally thin: it only deals with HTTP.
-All bot logic lives in bot/commands.py.
 """
 
 import json

@@ -60,10 +60,13 @@ def ask_about_notices(question, notices):
     if not OPENROUTER_API_KEY:
         return "AI feature is not configured. The developer needs to set OPENROUTER_API_KEY."
 
-    context = "\n".join(
-        f"{i}. {title}" + (f" | Date: {date}" if date else "") + f" | Link: {link}"
-        for i, (title, link, date) in enumerate(notices, 1)
-    )
+    context_lines = []
+    for i, item in enumerate(notices, 1):
+        title, link, date = item[:3]
+        summary = item[3] if len(item) > 3 else ""
+        line = f"{i}. {title}" + (f" | Date: {date}" if date else "") + (f" | Summary: {summary}" if summary else "") + f" | Link: {link}"
+        context_lines.append(line)
+    context = "\n".join(context_lines)
 
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT},
