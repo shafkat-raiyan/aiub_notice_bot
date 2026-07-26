@@ -63,7 +63,7 @@ def send_alert(title, link, date):
     bot_url = f"https://t.me/{get_bot_username()}"
     inline_keyboard = [
         [{"text": "\U0001f4d6 Read on AIUB Website", "url": link}],
-        [{"text": "\U0001f916 Use AI Enabled Bot for more features", "url": bot_url}],
+        [{"text": "\U0001f916 Ask AI Powered Bot", "url": bot_url}],
     ]
     payload = {
         "chat_id": CHAT_ID,
