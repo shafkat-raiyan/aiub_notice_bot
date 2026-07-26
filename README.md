@@ -48,9 +48,3 @@ A serverless Python notification platform and automated academic assistant desig
 - `bot/notifier.py` - Telegram notification formatting and sending helper with automatic network retry support.
 - `bot/config.py` - Global settings and environment variable configurations.
 - `.github/workflows/check_notice.yml` - Automation scheduling rule that runs the scraper every 30 minutes.
-
-## Developer Information
-
-Developed and maintained by Syed Shafkat Raiyan.
-- GitHub: [shafkat-raiyan](https://github.com/shafkat-raiyan)
-- LinkedIn: [Syed Shafkat Raiyan](https://www.linkedin.com/in/shafkat-raiyan)
