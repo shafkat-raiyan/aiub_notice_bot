@@ -1,0 +1,11 @@
+tmpclaude-*
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.vercel/
