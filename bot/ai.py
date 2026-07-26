@@ -22,15 +22,24 @@ _API_URL = "https://openrouter.ai/api/v1/chat/completions"
 _ANSWER_CACHE = {}  # format: {normalized_question: (timestamp, answer)}
 _CACHE_TTL_SECONDS = 600  # 10 minutes time-to-live
 
-# Free models ranked by responsiveness and instruction quality — fast flash/instruction models first!
+# Complete roster of all active free models on OpenRouter, prioritized by speed & instruction quality
 _FREE_MODELS = [
-    "google/gemini-2.5-flash:free",
-    "meta-llama/llama-3.1-8b-instruct:free",
-    "qwen/qwen-2.5-7b-instruct:free",
-    "meta-llama/llama-3.2-3b-instruct:free",
-    "google/gemma-4-26b-a4b:free",
-    "nvidia/nemotron-3-super:free",
+    "openrouter/free",  # Auto-routes to whichever model has zero queue instantly
+    "inclusionai/ling-3.0-flash:free",
+    "poolside/laguna-xs-2.1:free",
+    "poolside/laguna-s-2.1:free",
+    "poolside/laguna-m.1:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-nano-9b-v2:free",
+    "nvidia/nemotron-nano-12b-v2-vl:free",
+    "nvidia/nemotron-3-nano-30b-a3b:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
     "openai/gpt-oss-20b:free",
+    "nvidia/nemotron-3.5-content-safety:free",
+    "cohere/north-mini-code:free",
 ]
 
 # Static module-level set of common stop words to optimize keyword matching runtime
