@@ -17,8 +17,8 @@ TIMEOUT = 30  # seconds
 MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds between retries
 
-# --- State file ---
+# --- State & Database file ---
 MAX_SAVED_NOTICES = 200  # cap to prevent unbounded growth
 # Resolve to repo root (one level above this bot/ package)
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STATE_FILE = os.path.join(_REPO_ROOT, "last_notice.txt")
+DB_FILE = os.path.join(_REPO_ROOT, "notices_db.json")

@@ -2,7 +2,7 @@
 
 Each handle_* function:
   - Receives a chat_id
-  - Does its work (scrape / query AI / etc.)
+  - Does its work (read JSON DB / query AI / etc.)
   - Sends a response via notifier.send_message()
 
 process_update() is the router — it reads the incoming Telegram message
@@ -11,6 +11,7 @@ and calls the right handler.
 
 import logging
 from bot.scraper import get_notices
+from bot.state import load_notices_db
 from bot.notifier import send_message, escape_markdown_v2
 from bot.ai import ask_about_notices
 
@@ -18,8 +19,21 @@ log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers & Zero-Cost Cache Reader
 # ---------------------------------------------------------------------------
+
+def get_cached_or_live_notices(limit=30, force_live=False):
+    """Read historical notices straight from local git-backed JSON disk storage.
+
+    If the database is empty or missing, falls back to a live web scrape.
+    This eliminates third-party HTTP traffic on user interactions and prevents server rate-limit bans.
+    """
+    if not force_live:
+        db_notices = load_notices_db()
+        if db_notices:
+            return db_notices[:limit] if limit else db_notices
+    return get_notices(limit=limit)
+
 
 def _send_error(chat_id, command):
     send_message(chat_id, f"Something went wrong with {escape_markdown_v2(command)}\\. Please try again later\\.")
@@ -34,8 +48,8 @@ def handle_start(chat_id):
         "👋 *Welcome to AIUB Notice Bot\\!*\n\n"
         "/notice \\- Show latest 5 notices\n"
         "/latest \\- Show the most recent notice\n"
-        "/search \\<keyword\\> \\- Search notices by keyword\n"
-        "/ask \\<question\\> \\- Ask AI about notices\n"
+        "/search \\<keyword\\> \\- Search notices across historical database\n"
+        "/ask \\<question\\> \\- Ask AI about campus announcements\n"
         "/devinfo \\- Developer information\n"
         "/help \\- Show this message"
     )
@@ -44,7 +58,7 @@ def handle_start(chat_id):
 
 def handle_notice(chat_id):
     try:
-        notices = get_notices(limit=5)
+        notices = get_cached_or_live_notices(limit=5)
         if not notices:
             send_message(chat_id, "No notices found\\.")
             return
@@ -60,7 +74,7 @@ def handle_notice(chat_id):
 
 def handle_latest(chat_id):
     try:
-        notices = get_notices(limit=1)
+        notices = get_cached_or_live_notices(limit=1)
         if not notices:
             send_message(chat_id, "No notices found\\.")
             return
@@ -78,17 +92,18 @@ def handle_search(chat_id, query):
         send_message(chat_id, "Usage: /search \\<keyword\\>\nExample: /search exam")
         return
     try:
-        notices = get_notices(limit=30)
+        # Search across ALL historical records in notices_db.json!
+        notices = get_cached_or_live_notices(limit=None)
         matches = [(t, l, d) for t, l, d in notices if query.lower() in t.lower()]
         if not matches:
-            send_message(chat_id, f"No notices found for *{escape_markdown_v2(query)}*\\.")
+            send_message(chat_id, f"No notices found for *{escape_markdown_v2(query)}* in our historical database\\.")
             return
         lines = [f"🔍 *Results for \"{escape_markdown_v2(query)}\"*\n"]
         for i, (title, link, date) in enumerate(matches[:5], 1):
             date_str = f" \\({escape_markdown_v2(date)}\\)" if date else ""
             lines.append(f"{i}\\. [{escape_markdown_v2(title)}]({escape_markdown_v2(link)}){date_str}\n")
         if len(matches) > 5:
-            lines.append(f"\n_\\+{len(matches) - 5} more results_")
+            lines.append(f"\n_\\+{len(matches) - 5} more historical matches found_")
         send_message(chat_id, "\n".join(lines))
     except Exception:
         log.exception("Error in /search")
@@ -96,13 +111,13 @@ def handle_search(chat_id, query):
 
 
 def handle_ask(chat_id, question):
-    """RAG-based Q&A: scrape notices → feed to Gemini → answer the user."""
+    """RAG-based Q&A: read up to 60 historical database records → feed to LLM → answer instantly with zero server load."""
     if not question:
         send_message(chat_id, "Usage: /ask \\<question\\>\nExample: /ask when is the next exam\\?")
         return
     try:
         send_message(chat_id, "🤔 Thinking\\.\\.\\.")
-        notices = get_notices(limit=30)
+        notices = get_cached_or_live_notices(limit=60)
         answer = ask_about_notices(question, notices)
         send_message(chat_id, f"🤖 {escape_markdown_v2(answer)}")
     except Exception:
