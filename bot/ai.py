@@ -13,7 +13,7 @@ from bot.config import GEMINI_API_KEY
 
 log = logging.getLogger(__name__)
 
-_MODEL = "gemini-1.5-flash"  # free tier
+_MODEL = "gemini-2.0-flash"
 
 _SYSTEM_PROMPT = (
     "You are a helpful assistant for AIUB (American International University-Bangladesh) students. "
