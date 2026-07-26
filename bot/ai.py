@@ -21,25 +21,14 @@ _API_URL = "https://openrouter.ai/api/v1/chat/completions"
 # In-memory answer deduplication cache to eliminate OpenRouter API load on viral repeat queries
 _ANSWER_CACHE = {}  # format: {normalized_question: (timestamp, answer)}
 _CACHE_TTL_SECONDS = 600  # 10 minutes time-to-live
-
-# Complete roster of all active free models on OpenRouter, prioritized by speed & instruction quality
+# Top 6 fastest free models on OpenRouter — caps worst-case total wait at ~48s (6 models x 8s timeout)
 _FREE_MODELS = [
-    "openrouter/free",  # Auto-routes to whichever model has zero queue instantly
-    "inclusionai/ling-3.0-flash:free",
-    "poolside/laguna-xs-2.1:free",
-    "poolside/laguna-s-2.1:free",
-    "poolside/laguna-m.1:free",
-    "google/gemma-4-26b-a4b-it:free",
-    "google/gemma-4-31b-it:free",
-    "nvidia/nemotron-nano-9b-v2:free",
-    "nvidia/nemotron-nano-12b-v2-vl:free",
-    "nvidia/nemotron-3-nano-30b-a3b:free",
-    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-    "nvidia/nemotron-3-super-120b-a12b:free",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "openai/gpt-oss-20b:free",
-    "nvidia/nemotron-3.5-content-safety:free",
-    "cohere/north-mini-code:free",
+    "openrouter/free",                       # Auto-routes to whichever model has zero queue
+    "inclusionai/ling-3.0-flash:free",       # Fast flash model
+    "google/gemma-4-26b-a4b-it:free",        # Strong instruction-tuned
+    "nvidia/nemotron-nano-9b-v2:free",       # Lightweight and fast
+    "poolside/laguna-xs-2.1:free",           # Small and responsive
+    "openai/gpt-oss-20b:free",              # Reliable fallback
 ]
 
 # Static module-level set of common stop words to optimize keyword matching runtime
@@ -57,8 +46,9 @@ _SYSTEM_PROMPT = (
     "1. ZERO HALLUCINATIONS: You only hold catalog headlines, publication dates, summary previews, and URLs—not internal PDF body text. If a student asks for deep internal details (e.g., specific room numbers, tuition fee amounts, or individual seat plans), pinpoint the best matching notice and instruct them to click the link to view exact PDF documents.\n"
     "2. TEMPORAL & SCOPE AWARENESS: Your active memory pool spans our newest ~200 notices (the current academic term, ~last 4 to 6 months). If a student inquires about historical events or rules from previous academic years (e.g., 1 or 2 years ago) or events outside this list, explain: 'My live memory covers our latest ~200 semester announcements (~4 to 6 months). For archival policies from previous academic years, please search the official university catalog at https://www.aiub.edu/category/notices!'\n"
     "3. NO SILENT REFUSALS: If a user inquires about upcoming midterms, routines, or holidays that aren't in your current list, NEVER simply reply 'No' or 'I don't know'. Offer helpful guidance: 'I couldn't find a headline matching that topic in our active semester records. Because exam dates and academic deadlines are mission-critical, please verify directly at https://www.aiub.edu/category/notices or try using `/search <keyword>`!'\n"
-    "4. STRICT CHAT FORMATTING: Do NOT generate Markdown tables, ASCII grids, horizontal dividers, or double asterisks (`**bold**`). Write your response in warm, natural conversational paragraphs or simple bullet points so it renders cleanly on mobile chat screens. Keep your replies clear, helpful, and concise.\n"
-    "5. PRIORITIZE CURRENT SEMESTER: When a student inquires about exam sets, routines, or announcements without naming a specific term, ALWAYS assume they mean the currently active semester (the most recent notices in the catalog). Do NOT volunteer information about past terms (such as previous Spring, Fall, or Summer semesters) unless explicitly requested."
+    "4. STRICT CHAT FORMATTING: Do NOT generate Markdown tables, ASCII grids, horizontal dividers, or double asterisks (`**bold**`). Write your response in warm, natural conversational paragraphs or simple bullet points so it renders cleanly on mobile chat screens.\n"
+    "5. PRIORITIZE CURRENT SEMESTER: When a student inquires about exam sets, routines, or announcements without naming a specific term, ALWAYS assume they mean the currently active semester (the most recent notices in the catalog). Do NOT volunteer information about past terms (such as previous Spring, Fall, or Summer semesters) unless explicitly requested.\n"
+    "6. ADAPTIVE RESPONSE LENGTH: Match your reply length to the complexity of the question. For simple yes/no or lookup questions (e.g., 'Is the mid-term schedule posted?'), reply in 1 to 3 sentences maximum. Only provide longer, detailed answers when the student asks a complex or multi-part question. Never pad your response with unnecessary filler or repetition."
 )
 
 
@@ -113,7 +103,7 @@ def _call_openrouter(model, messages):
             "Content-Type": "application/json",
         },
         json={"model": model, "messages": messages},
-        timeout=10,  # Strict 10s timeout ensures rapid failover to fast alternative models during queue delays
+        timeout=8,  # 8s per model x 6 models = 48s worst case, well within Vercel's 60s limit
     )
     resp.raise_for_status()
     return resp.json()["choices"][0]["message"]["content"].strip()

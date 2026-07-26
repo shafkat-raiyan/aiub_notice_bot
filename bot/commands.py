@@ -196,13 +196,11 @@ def process_update(body):
             handle_devinfo(chat_id)
     else:
         # Plain text input without "/" prefix: check if user is replying to our interactive prompt!
+        # NOTE: _USER_STATES is in-memory and may be lost across Vercel serverless cold starts.
+        # If state is missing, silently ignore the message rather than confusing the user.
         state = _USER_STATES.pop(chat_id, None)
         if state == "ask":
             handle_ask(chat_id, text)
         elif state == "search":
             handle_search(chat_id, text)
-        else:
-            send_message(
-                chat_id,
-                "Unrecognized input\\. Use /notice, /latest, /search, or /ask\\.",
-            )
+
