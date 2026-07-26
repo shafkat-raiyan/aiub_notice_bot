@@ -56,9 +56,8 @@ def handle_start(chat_id):
         "/devinfo \\- Developer information\n"
         "/help \\- Show this message\n\n"
         "ℹ️ *Database & Memory Coverage:*\n"
-        "• 🤖 `/ask` analyzes our newest ~60 notices \\(~last 1–2 months\\)\\.\n"
-        "• 🔍 `/search` checks across our stored database of ~200 notices \\(current semester\\)\\.\n"
-        "• 🏛️ For archival notices over 6 months old, please visit aiub\\.edu directly\\."
+        "• 🤖 `/ask` and 🔍 `/search` scan our entire active semester database \\(up to 200 announcements covering the last 4 to 6 months\\)\\.\n"
+        "• 🏛️ For archival notices from previous academic years, please visit aiub\\.edu directly\\."
     )
     send_message(chat_id, msg)
 
@@ -107,7 +106,7 @@ def handle_search(chat_id, query):
         if not matches:
             msg = (
                 f"No matches found for *{escape_markdown_v2(query)}* in our active semester database \\(latest 200 announcements\\)\\.\n\n"
-                "ℹ️ _For archival notices from previous academic years \\(1–2 years ago\\), please search directly at [aiub\\.edu/category/notices](https://www.aiub.edu/category/notices)\\._"
+                "ℹ️ _For archival notices from previous academic years \\(1 to 2 years ago\\), please search directly at [aiub\\.edu/category/notices](https://www.aiub.edu/category/notices)\\._"
             )
             send_message(chat_id, msg)
             return
@@ -125,10 +124,11 @@ def handle_search(chat_id, query):
 
 
 def handle_ask(chat_id, question):
-    """RAG-based Q&A: read up to 60 historical database records → feed to LLM → answer instantly with zero server load."""
+    """RAG-based Q&A: read up to all 200 historical database records → feed to LLM → answer instantly with zero server load."""
     try:
         send_message(chat_id, "🤔 Thinking\\.\\.\\.")
-        notices = get_cached_or_live_notices(limit=60)
+        # Feed the entire active semester database (up to 200 items / ~8,000 tokens) directly to our AI models!
+        notices = get_cached_or_live_notices(limit=None)
         answer = ask_about_notices(question, notices)
         send_message(chat_id, f"🤖 {escape_markdown_v2(answer)}")
     except Exception:
@@ -182,7 +182,7 @@ def process_update(body):
                 _USER_STATES[chat_id] = "search"
                 msg = (
                     "🔍 *What keyword would you like to search for?*\n\n"
-                    "ℹ️ _Note: Search scans our active semester database \\(~200 announcements covering the last 4–6 months\\)\\. "
+                    "ℹ️ _Note: Search scans our active semester database \\(up to 200 announcements covering the last 4 to 6 months\\)\\. "
                     "For archival records older than 6 months, please visit aiub\\.edu directly\\._\n\n"
                     "👉 *Type your search keyword below:*"
                 )
@@ -194,7 +194,7 @@ def process_update(body):
                 _USER_STATES[chat_id] = "ask"
                 msg = (
                     "🤖 *What would you like to ask about AIUB notices?*\n\n"
-                    "ℹ️ _Note: My AI awareness covers our newest ~60 announcements \\(~last 1–2 months of campus events\\)\\. "
+                    "ℹ️ _Note: My AI memory covers our active semester database \\(up to 200 announcements covering the last 4 to 6 months\\)\\. "
                     "For policies from previous academic years, please check aiub\\.edu directly\\._\n\n"
                     "👉 *Type your question below:*"
                 )
