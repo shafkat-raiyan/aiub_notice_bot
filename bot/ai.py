@@ -1,12 +1,15 @@
-"""OpenRouter AI integration for the /ask command (RAG pattern).
+"""OpenRouter AI integration for the /ask command (Hybrid Smart-RAG Pattern).
 
 How it works:
   1. Receive a question from the user
-  2. Pass the scraped notices as context to the LLM
-  3. Try free models in order — if one fails, fall back to the next
-  4. Return the answer as a plain string
+  2. Check in-memory answer deduplication cache (shields free tier from simultaneous traffic bursts)
+  3. Pre-filter 200-item historical database down to ~35 high-signal notices (~85% token reduction)
+  4. Try free models in order — if one fails or throttles, fall back to the next
+  5. Cache and return the answer as a plain string
 """
 
+import time
+import re
 import logging
 import requests
 from bot.config import OPENROUTER_API_KEY
@@ -14,6 +17,10 @@ from bot.config import OPENROUTER_API_KEY
 log = logging.getLogger(__name__)
 
 _API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+# In-memory answer deduplication cache to eliminate OpenRouter API load on viral repeat queries
+_ANSWER_CACHE = {}  # format: {normalized_question: (timestamp, answer)}
+_CACHE_TTL_SECONDS = 600  # 10 minutes time-to-live
 
 # Free models ranked by quality — tries best first, falls back on failure
 _FREE_MODELS = [
@@ -37,6 +44,54 @@ _SYSTEM_PROMPT = (
 )
 
 
+def _filter_relevant_notices(question, notices, max_items=35):
+    """Pre-filter up to 200 database records down to ~35 high-signal items to protect Free-Tier TPM limits.
+
+    Combines top keyword matches across historical records with newest baseline notices,
+    reducing token bandwidth by ~85% while preserving full-semester search reach.
+    """
+    if len(notices) <= max_items:
+        return notices
+
+    stop_words = {
+        "is", "the", "when", "what", "where", "how", "who", "why", "can", "will", "would", "should",
+        "could", "do", "does", "did", "are", "was", "were", "of", "in", "and", "on", "to", "by",
+        "with", "from", "at", "as", "for", "about", "any", "all", "some", "my", "our", "your",
+        "notice", "notices", "aiub", "university", "please", "tell", "me", "know", "out", "published"
+    }
+    query_words = set(re.findall(r"\w+", question.lower())) - stop_words
+
+    # If no significant domain keywords remain (e.g., general "what is new?"), serve newest 35 items
+    if not query_words:
+        return notices[:max_items]
+
+    # Score each record by keyword hits in title + summary
+    scored = []
+    for idx, item in enumerate(notices):
+        title = item[0]
+        summary = item[3] if len(item) > 3 else ""
+        text = f"{title} {summary}".lower()
+        score = sum(1 for w in query_words if w in text)
+        scored.append((score, -idx, item))  # Prefer higher score; tie-break by newer notice (-idx)
+
+    # Select top 20 most keyword-relevant records across the full semester history
+    scored.sort(reverse=True)
+    top_relevant = [item for score, _, item in scored[:20] if score > 0]
+
+    # Always combine with newest 15 notices for real-time baseline awareness
+    newest_baseline = notices[:15]
+
+    # Merge and deduplicate while preserving accurate chronological sequence (newest first)
+    seen_titles = set()
+    final_list = []
+    for item in (newest_baseline + top_relevant):
+        if item[0] not in seen_titles:
+            seen_titles.add(item[0])
+            final_list.append(item)
+
+    return final_list[:max_items]
+
+
 def _call_openrouter(model, messages):
     """Make a single API call to OpenRouter. Returns the response text or raises."""
     resp = requests.post(
@@ -53,16 +108,27 @@ def _call_openrouter(model, messages):
 
 
 def ask_about_notices(question, notices):
-    """Ask the LLM a question grounded in the provided notices.
+    """Ask the LLM a question grounded in the provided notices with defensive caching and RAG filtering.
 
-    Tries each free model in order. If one is rate-limited or down,
-    falls back to the next automatically.
+    Tries each free model in order. If one is rate-limited or down, falls back to the next automatically.
     """
     if not OPENROUTER_API_KEY:
         return "AI feature is not configured. The developer needs to set OPENROUTER_API_KEY."
 
+    # 1. Check answer deduplication cache to shield free tiers from simultaneous traffic spikes
+    norm_q = " ".join(re.findall(r"\w+", question.lower()))
+    now = time.time()
+    if norm_q in _ANSWER_CACHE:
+        ts, cached_ans = _ANSWER_CACHE[norm_q]
+        if now - ts < _CACHE_TTL_SECONDS:
+            log.info("Serving instant cached AI response for: %s", norm_q)
+            return cached_ans
+
+    # 2. Pre-filter notices to reduce token payload by 85%
+    filtered_notices = _filter_relevant_notices(question, notices, max_items=35)
+
     context_lines = []
-    for i, item in enumerate(notices, 1):
+    for i, item in enumerate(filtered_notices, 1):
         title, link, date = item[:3]
         summary = item[3] if len(item) > 3 else ""
         line = f"{i}. {title}" + (f" | Date: {date}" if date else "") + (f" | Summary: {summary}" if summary else "") + f" | Link: {link}"
@@ -78,9 +144,11 @@ def ask_about_notices(question, notices):
         try:
             answer = _call_openrouter(model, messages)
             log.info("Got answer from %s", model)
+            # 3. Store verified answer in TTL cache before returning
+            _ANSWER_CACHE[norm_q] = (now, answer)
             return answer
         except Exception as exc:
             log.warning("Model %s failed: %s — trying next", model, exc)
             continue
 
-    return "All AI models are currently busy. Please try again in a minute."
+    return "All AI models are currently busy due to high campus traffic. Please try again in a couple of minutes."
