@@ -43,7 +43,7 @@ def get_bot_username():
             _bot_username = resp.json().get("result", {}).get("username")
     except Exception as exc:
         log.warning("Could not fetch bot username: %s", exc)
-    return _bot_username or "aiub_notice_bot"
+    return _bot_username or "r_aiub_notice_bot"
 
 
 def send_alert(title, link, date):
