@@ -29,6 +29,23 @@ def send_message(chat_id, text, parse_mode="MarkdownV2", preview=False):
     requests.post(_telegram_url("sendMessage"), json=payload, timeout=10)
 
 
+_bot_username = None
+
+
+def get_bot_username():
+    """Dynamically discover and cache the bot's username via Telegram's getMe API."""
+    global _bot_username
+    if _bot_username:
+        return _bot_username
+    try:
+        resp = requests.get(_telegram_url("getMe"), timeout=5)
+        if resp.ok:
+            _bot_username = resp.json().get("result", {}).get("username")
+    except Exception as exc:
+        log.warning("Could not fetch bot username: %s", exc)
+    return _bot_username or "aiub_notice_bot"
+
+
 def send_alert(title, link, date):
     """Send a new-notice alert to the configured CHAT_ID (used by the cron job).
 
@@ -36,19 +53,28 @@ def send_alert(title, link, date):
     Returns True if the message was sent successfully.
     """
     safe_title = escape_markdown_v2(title)
-    safe_link = escape_markdown_v2(link)
     date_str = f"\U0001f4c5 {escape_markdown_v2(date)}\n\n" if date else ""
     msg = (
         "\U0001f6a8 *New AIUB Notice\\!*\n\n"
         f"{date_str}"
-        f"_{safe_title}_\n\n"
-        f"[Click to Read]({safe_link})"
+        f"_{safe_title}_"
     )
-    payload = {"chat_id": CHAT_ID, "text": msg, "parse_mode": "MarkdownV2"}
+
+    bot_url = f"https://t.me/{get_bot_username()}"
+    inline_keyboard = [
+        [{"text": "\U0001f4d6 Read on AIUB Website", "url": link}],
+        [{"text": "\U0001f916 Use AI Enabled Bot for more features", "url": bot_url}],
+    ]
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": msg,
+        "parse_mode": "MarkdownV2",
+        "reply_markup": {"inline_keyboard": inline_keyboard},
+    }
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            resp = requests.post(_telegram_url("sendMessage"), data=payload, timeout=10)
+            resp = requests.post(_telegram_url("sendMessage"), json=payload, timeout=10)
             resp.raise_for_status()
             return True
         except requests.RequestException as exc:
