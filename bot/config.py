@@ -6,8 +6,8 @@ import os
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
-# --- Gemini AI ---
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+# --- OpenRouter AI ---
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 # --- Scraper ---
 AIUB_URL = "https://www.aiub.edu/category/notices"
