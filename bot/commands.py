@@ -44,16 +44,16 @@ def _send_error(chat_id, command):
 
 def handle_start(chat_id):
     msg = (
-        "👋 *Welcome to AIUB Notice Bot\\!*\n\n"
+        "*Welcome to AIUB Notice Bot*\n\n"
         "/notice \\- Show latest 5 notices\n"
         "/latest \\- Show the most recent notice\n"
         "/search \\<keyword\\> \\- Search notices across historical database\n"
         "/ask \\<question\\> \\- Ask AI about campus announcements\n"
         "/devinfo \\- Developer information\n"
         "/help \\- Show this message\n\n"
-        "ℹ️ *Database & Memory Coverage:*\n"
-        "• 🤖 `/ask` and 🔍 `/search` scan our entire active semester database \\(up to 200 announcements covering the last 4 to 6 months\\)\\.\n"
-        "• 🏛️ For archival notices from previous academic years, please visit aiub\\.edu directly\\."
+        "*Database & Memory Coverage:*\n"
+        "• `/ask` and `/search` scan our entire active semester database \\(up to 200 announcements covering the last 4 to 6 months\\)\\.\n"
+        "• For archival notices from previous academic years, please visit aiub\\.edu directly\\."
     )
     send_message(chat_id, msg)
 
@@ -64,7 +64,7 @@ def handle_notice(chat_id):
         if not notices:
             send_message(chat_id, "No notices found\\.")
             return
-        lines = ["📋 *Latest AIUB Notices*\n"]
+        lines = ["*Latest AIUB Notices*\n"]
         for i, item in enumerate(notices, 1):
             title, link, date = item[:3]
             date_str = f" \\({escape_markdown_v2(date)}\\)" if date else ""
@@ -85,9 +85,9 @@ def handle_latest(chat_id):
         title, link, date = item[:3]
         summary = item[3] if len(item) > 3 else ""
         
-        date_str = f"📅 {escape_markdown_v2(date)}\n\n" if date else ""
-        summary_str = f"\n\n💬 _{escape_markdown_v2(summary)}_" if summary else ""
-        msg = f"🔔 *Latest Notice*\n\n{date_str}*{escape_markdown_v2(title)}*{summary_str}\n\n[Click to Read]({escape_markdown_v2(link)})"
+        date_str = f"*Date:* {escape_markdown_v2(date)}\n\n" if date else ""
+        summary_str = f"\n\n*Highlights:* _{escape_markdown_v2(summary)}_" if summary else ""
+        msg = f"*Latest Notice*\n\n{date_str}*{escape_markdown_v2(title)}*{summary_str}\n\n[Click to Read]({escape_markdown_v2(link)})"
         send_message(chat_id, msg, preview=True)
     except Exception:
         log.exception("Error in /latest")
@@ -96,17 +96,16 @@ def handle_latest(chat_id):
 
 def handle_search(chat_id, query):
     try:
-        # Search across ALL historical records in notices_db.json!
         notices = get_cached_or_live_notices(limit=None)
         matches = [item for item in notices if query.lower() in item[0].lower() or (len(item) > 3 and query.lower() in item[3].lower())]
         if not matches:
             msg = (
                 f"No matches found for *{escape_markdown_v2(query)}* in our active semester database \\(latest 200 announcements\\)\\.\n\n"
-                "ℹ️ _For archival notices from previous academic years \\(1 to 2 years ago\\), please search directly at [aiub\\.edu/category/notices](https://www.aiub.edu/category/notices)\\._"
+                "_For archival notices from previous academic years \\(1 to 2 years ago\\), please search directly at [aiub\\.edu/category/notices](https://www.aiub.edu/category/notices)\\._"
             )
             send_message(chat_id, msg)
             return
-        lines = [f"🔍 *Results for \"{escape_markdown_v2(query)}\"*\n"]
+        lines = [f"*Search Results for \"{escape_markdown_v2(query)}\"*\n"]
         for i, item in enumerate(matches[:5], 1):
             title, link, date = item[:3]
             date_str = f" \\({escape_markdown_v2(date)}\\)" if date else ""
@@ -122,11 +121,10 @@ def handle_search(chat_id, query):
 def handle_ask(chat_id, question):
     """RAG-based Q&A: read up to all 200 historical database records → feed to LLM → answer instantly with zero server load."""
     try:
-        send_message(chat_id, "🤔 Thinking\\.\\.\\.")
-        # Feed the entire active semester database (up to 200 items / ~8,000 tokens) directly to our AI models!
+        send_message(chat_id, "Analyzing campus announcements\\.\\.\\.")
         notices = get_cached_or_live_notices(limit=None)
         answer = ask_about_notices(question, notices)
-        send_message(chat_id, f"🤖 {escape_markdown_v2(answer)}")
+        send_message(chat_id, f"{escape_markdown_v2(answer)}")
     except Exception:
         log.exception("Error in /ask")
         _send_error(chat_id, "/ask")
@@ -134,9 +132,9 @@ def handle_ask(chat_id, question):
 
 def handle_devinfo(chat_id):
     msg = (
-        "👨‍💻 *Developer Information*\n\n"
+        "*Developer Information*\n\n"
         "*Name:* Syed Shafkat Raiyan\n\n"
-        "🔗 *Connect with me:*\n"
+        "*Connect with me:*\n"
         "[GitHub](https://github.com/shafkat\\-raiyan)\n"
         "[LinkedIn](https://www.linkedin.com/in/shafkat\\-raiyan)"
     )
@@ -157,7 +155,6 @@ def process_update(body):
     if not chat_id or not text:
         return
 
-    # Check if the user is triggering a command starting with "/"
     if text.startswith("/"):
         cmd = text.split()[0].lower().split("@")[0]
         arg = text.split(maxsplit=1)[1] if " " in text else ""
@@ -175,10 +172,10 @@ def process_update(body):
             if not arg:
                 _USER_STATES[chat_id] = "search"
                 msg = (
-                    "🔍 *What keyword would you like to search for?*\n\n"
-                    "ℹ️ _Note: Search scans our active semester database \\(up to 200 announcements covering the last 4 to 6 months\\)\\. "
+                    "*What keyword would you like to search for?*\n\n"
+                    "_Note: Search scans our active semester database \\(up to 200 announcements covering the last 4 to 6 months\\)\\. "
                     "For archival records older than 6 months, please visit aiub\\.edu directly\\._\n\n"
-                    "👉 *Type your search keyword below:*"
+                    "Type your search keyword below:"
                 )
                 send_message(chat_id, msg)
             else:
@@ -187,10 +184,10 @@ def process_update(body):
             if not arg:
                 _USER_STATES[chat_id] = "ask"
                 msg = (
-                    "🤖 *What would you like to ask about AIUB notices?*\n\n"
-                    "ℹ️ _Note: My AI memory covers our active semester database \\(up to 200 announcements covering the last 4 to 6 months\\)\\. "
+                    "*What would you like to ask about AIUB notices?*\n\n"
+                    "_Note: My AI memory covers our active semester database \\(up to 200 announcements covering the last 4 to 6 months\\)\\. "
                     "For policies from previous academic years, please check aiub\\.edu directly\\._\n\n"
-                    "👉 *Type your question below:*"
+                    "Type your question below:"
                 )
                 send_message(chat_id, msg)
             else:
@@ -205,5 +202,7 @@ def process_update(body):
         elif state == "search":
             handle_search(chat_id, text)
         else:
-            # Helpful guidance if text is sent outside of an active prompt
-            send_message(chat_id, "Please tap a command from the menu button or type /help to explore available tools\\!")
+            send_message(
+                chat_id,
+                "Unrecognized input\\. Use /notice, /latest, /search, or /ask\\.",
+            )

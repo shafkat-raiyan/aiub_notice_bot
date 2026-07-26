@@ -53,10 +53,10 @@ def send_alert(title, link, date, summary=""):
     Returns True if the message was sent successfully.
     """
     safe_title = escape_markdown_v2(title)
-    date_str = f"\U0001f4c5 {escape_markdown_v2(date)}\n\n" if date else ""
-    summary_str = f"\n\n💬 _{escape_markdown_v2(summary)}_" if summary else ""
+    date_str = f"*Date:* {escape_markdown_v2(date)}\n\n" if date else ""
+    summary_str = f"\n\n*Highlights:* _{escape_markdown_v2(summary)}_" if summary else ""
     msg = (
-        "\U0001f6a8 *New AIUB Notice\\!*\n\n"
+        "*New AIUB Notice\\!*\n\n"
         f"{date_str}"
         f"*{safe_title}*"
         f"{summary_str}"
@@ -64,8 +64,8 @@ def send_alert(title, link, date, summary=""):
 
     bot_url = f"https://t.me/{get_bot_username()}"
     inline_keyboard = [
-        [{"text": "\U0001f4d6 Read on AIUB Website", "url": link}],
-        [{"text": "\U0001f916 Use AI Enabled Notice Bot", "url": bot_url}],
+        [{"text": "View on AIUB Portal", "url": link}],
+        [{"text": "\u2728 Use AI Enabled Notice Bot", "url": bot_url}],
     ]
     payload = {
         "chat_id": CHAT_ID,
