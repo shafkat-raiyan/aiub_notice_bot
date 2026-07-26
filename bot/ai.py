@@ -52,4 +52,6 @@ def ask_about_notices(question, notices):
         return response.text.strip()
     except Exception as exc:
         log.error("Gemini API error: %s", exc)
-        return f"Error: {exc}"
+        if "429" in str(exc):
+            return "I'm getting too many requests right now. Please try again in a minute."
+        return "Sorry, I couldn't process your question right now. Please try again later."
